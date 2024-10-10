@@ -32,6 +32,10 @@ class MainWindow : public QMainWindow
     int encodedFileSize;
     int decodedFileSize;
 
+    QLabel *originalFileLabel;
+    QLabel *encodedFileLabel;
+    QLabel *decodedFileLabel;
+
     QLabel *originalFileSizeLabel;
     QLabel *encodedFileSizeLabel;
     QLabel *decodedFileSizeLabel;

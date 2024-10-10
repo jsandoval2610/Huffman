@@ -25,13 +25,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     fileSizes = new QHBoxLayout();
 
-    QLabel *originalFileLabel = new QLabel("Original File Size (KB): ");
+    originalFileLabel = new QLabel("Original File Size (KB): ");
     originalFileSizeLabel = new QLabel("0");
 
-    QLabel *encodedFileLabel = new QLabel("Encoded File Size (KB): ");
+    encodedFileLabel = new QLabel("Encoded File Size (KB): ");
     encodedFileSizeLabel = new QLabel("0");
 
-    QLabel *decodedFileLabel = new QLabel("Decoded File Size (KB): ");
+    decodedFileLabel = new QLabel("Decoded File Size (KB): ");
     decodedFileSizeLabel = new QLabel("0");
 
 
@@ -68,7 +68,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow() {}
 
 
-
 void MainWindow::loadClicked() {
     QString fName = QFileDialog::getOpenFileName(this, "Open File");
     if(fName.isEmpty()) return;
@@ -82,8 +81,12 @@ void MainWindow::loadClicked() {
     fileSize = in.size();
 
     originalFileSizeLabel->setText(QString::number((unsigned int) fileSize / 1024));
-
-
+    originalFileLabel->show();
+    originalFileSizeLabel->show();
+    encodedFileLabel->hide();
+    encodedFileSizeLabel->hide();
+    decodedFileLabel->hide();
+    decodedFileSizeLabel->hide();
 
     fileData = in.readAll();
     if(fileData.isEmpty()) {
@@ -120,9 +123,8 @@ void MainWindow::loadClicked() {
     }
 
     load->setEnabled(false);
-    encodedFileSizeLabel->hide();
-    decodedFileSizeLabel->hide();
-    originalFileSizeLabel->show();
+    encode->setEnabled(true);
+    decode->setEnabled(false);
 }
 
 
@@ -138,6 +140,19 @@ void MainWindow::loadClicked() {
 
 
 void MainWindow::encodeClicked() {
+
+    // Check for unique char edge case
+    int uniqueChars = 0;
+    for (int i = 0; i < byteFrequencies.size(); ++i) {
+        if (byteFrequencies[i] > 0) {
+            ++uniqueChars;
+        }
+    }
+    if (uniqueChars <= 1) {
+        QMessageBox::information(this, "Cannot Encode", "File contains only one unique character. Huffman encoding is not possible.");
+        return;
+    }
+
 
     while(toDo->size() > 1) {
 
@@ -215,10 +230,17 @@ void MainWindow::encodeClicked() {
     encodedFileSize = outFile.size();
     encodedFileSizeLabel->setText(QString::number((unsigned int) encodedFileSize / 1024));
 
+    originalFileLabel->show();
+    originalFileSizeLabel->show();
+    encodedFileLabel->show();
+    encodedFileSizeLabel->show();
+    decodedFileLabel->hide();
+    decodedFileSizeLabel->hide();
+
     outFile.close();
     encode->setEnabled(false);
-    encodedFileSizeLabel->show();
-    decodedFileSizeLabel->hide();
+    decode->setEnabled(true);
+
 }
 
 
@@ -231,8 +253,7 @@ void MainWindow::decodeClicked() {
     table->clear();
     byteFrequencies.fill(0);
     fileSize = 0;
-    encodedFileSizeLabel->hide();
-    decodedFileSizeLabel->show();
+    table->setColumnCount(3);
 
     QStringList headers;
     headers << "Character Code" << "Symbol" << "Huffman";
@@ -263,7 +284,6 @@ void MainWindow::decodeClicked() {
     // Filling out table
     int count = 0;
     for(auto it = decodingHuffmanCodes2.constBegin(); it != decodingHuffmanCodes2.constEnd(); ++it) {
-        // qDebug() << "Huffman Code:" << it.key() << " Symbol:" << it.value();
 
         QTableWidgetItem *charCodeItem = new QTableWidgetItem();
         charCodeItem->setData(Qt::DisplayRole, (unsigned char) it.value()[0]);
@@ -286,13 +306,6 @@ void MainWindow::decodeClicked() {
     encodedBytes.resize((encodedDataSize + 7) / 8);
 
     inStream.readRawData(encodedBytes.data(),encodedDataSize);
-    // int bytesRead = inStream.readRawData(encodedBytes.data(), encodedBytes.size());
-    // if (bytesRead < 0) {
-    //     qDebug() << "Error reading raw data";
-    // }
-    // inStream >> encodedBytes;
-
-
 
     // Convert the bytes back to bits
     for (int i = 0; i < encodedBytes.size(); ++i) {
@@ -332,18 +345,16 @@ void MainWindow::decodeClicked() {
     outFile.close();
 
     decodedFileSizeLabel->setText(QString::number((unsigned int) decodedData.size() / 1024));
+
+    originalFileLabel->show();
+    originalFileSizeLabel->show();
+    encodedFileLabel->hide();
+    encodedFileSizeLabel->hide();
+    decodedFileLabel->show();
     decodedFileSizeLabel->show();
+
     load->setEnabled(false);
     encode->setEnabled(false);
     decode->setEnabled(false);
-    table->sortItems(0, Qt::AscendingOrder);
-    table->hideColumn(4);
-
 
 }
-
-
-
-
-
-
