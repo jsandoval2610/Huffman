@@ -43,7 +43,11 @@ MainWindow::MainWindow(QWidget *parent)
     fileSizes->addWidget(decodedFileSizeLabel);
 
     fullLayout->addLayout(buttonLayout);
+    encode->hide();
+    decode->hide();
+
     fullLayout->addLayout(fileSizes);
+
 
 
     table = new QTableWidget(256, 4);
@@ -54,6 +58,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     centralWidget->setLayout(fullLayout);
 
+    decodedFileLabel->hide();
+    decodedFileSizeLabel->hide();
+    originalFileLabel->hide();
+    originalFileSizeLabel->hide();
+    encodedFileLabel->hide();
+    encodedFileSizeLabel->hide();
     decodedFileLabel->hide();
     decodedFileSizeLabel->hide();
 
@@ -69,6 +79,9 @@ MainWindow::~MainWindow() {}
 
 
 void MainWindow::loadClicked() {
+
+    byteFrequencies.fill(0);
+
     QString fName = QFileDialog::getOpenFileName(this, "Open File");
     if(fName.isEmpty()) return;
 
@@ -122,9 +135,11 @@ void MainWindow::loadClicked() {
         }
     }
 
-    load->setEnabled(false);
+    load->setEnabled(true);
     encode->setEnabled(true);
     decode->setEnabled(false);
+    encode->show();
+
 }
 
 
@@ -141,6 +156,12 @@ void MainWindow::loadClicked() {
 
 void MainWindow::encodeClicked() {
 
+    toDo->clear();
+    children->clear();
+    decodingHuffmanCodes.clear();
+    encodingHuffmanCodes.clear();
+    allEncodings.clear();
+
     // Check for unique char edge case
     int uniqueChars = 0;
     for (int i = 0; i < byteFrequencies.size(); ++i) {
@@ -151,6 +172,14 @@ void MainWindow::encodeClicked() {
     if (uniqueChars <= 1) {
         QMessageBox::information(this, "Cannot Encode", "File contains only one unique character. Huffman encoding is not possible.");
         return;
+    }
+
+    // Repopulate toDo
+    for(int code = 0; code < 256; ++code) {
+        if(byteFrequencies[code]) {
+            // Populate the QMultiMap for Huffman
+            toDo->insert(byteFrequencies[code], QByteArray(1, code));
+        }
     }
 
 
@@ -219,11 +248,22 @@ void MainWindow::encodeClicked() {
     out << decodingHuffmanCodes;
     out << (qint32)allEncodings.size();
 
+    // QByteArray rawBytes;
+    // for(int i = 0; i < allEncodings.size(); i += 8) {
+    //     char tempByte = allEncodings.mid(i,8).toInt(nullptr, 2);
+    //     rawBytes.append(tempByte);
+    // }
     QByteArray rawBytes;
-    for(int i = 0; i < allEncodings.size(); i += 8) {
-        char tempByte = allEncodings.mid(i,8).toInt(nullptr, 2);
-        rawBytes.append(tempByte);
+    int totalBits = allEncodings.size();
+    for(int i = 0; i < totalBits; i += 8) {
+        QString byteString = allEncodings.mid(i, 8);
+
+        // Convert the bit string to an unsigned integer
+        quint8 tempByte = static_cast<quint8>(byteString.toUInt(nullptr, 2));
+
+        rawBytes.append(static_cast<char>(tempByte));
     }
+
 
     out.writeRawData(rawBytes.data(), rawBytes.size());
 
@@ -238,9 +278,11 @@ void MainWindow::encodeClicked() {
     decodedFileSizeLabel->hide();
 
     outFile.close();
+    load->setEnabled(true);
     encode->setEnabled(false);
     decode->setEnabled(true);
-
+    encode->hide();
+    decode->show();
 }
 
 
@@ -254,6 +296,10 @@ void MainWindow::decodeClicked() {
     byteFrequencies.fill(0);
     fileSize = 0;
     table->setColumnCount(3);
+    encodedBytes.clear();
+    encodedBits.clear();
+    decodingHuffmanCodes2.clear();
+
 
     QStringList headers;
     headers << "Character Code" << "Symbol" << "Huffman";
@@ -304,15 +350,23 @@ void MainWindow::decodeClicked() {
 
 
     encodedBytes.resize((encodedDataSize + 7) / 8);
-
-    inStream.readRawData(encodedBytes.data(),encodedDataSize);
+    inStream.readRawData(encodedBytes.data(),encodedBytes.size());
 
     // Convert the bytes back to bits
+    // for (int i = 0; i < encodedBytes.size(); ++i) {
+    //     int width = qMin(encodedDataSize, 8);
+    //     encodedBits.append(QString::number(((unsigned char)encodedBytes[i]), 2).rightJustified(width,'0'));
+    //     encodedDataSize -= width;
+    // }
+    encodedBits.clear();
     for (int i = 0; i < encodedBytes.size(); ++i) {
-        int width = qMin(encodedDataSize, 8);
-        encodedBits.append(QString::number(((unsigned char)encodedBytes[i]), 2).rightJustified(width,'0'));
-        encodedDataSize -= width;
+        QString byteString = QString::number(static_cast<quint8>(encodedBytes[i]), 2).rightJustified(8, '0');
+        encodedBits.append(byteString);
     }
+
+    // After concatenating all bits, trim the excess bits
+    encodedBits = encodedBits.left(encodedDataSize);
+
 
 
     //Decode using Huffman map
@@ -353,8 +407,9 @@ void MainWindow::decodeClicked() {
     decodedFileLabel->show();
     decodedFileSizeLabel->show();
 
-    load->setEnabled(false);
+    load->setEnabled(true);
     encode->setEnabled(false);
     decode->setEnabled(false);
-
+    encode->hide();
+    decode->hide();
 }

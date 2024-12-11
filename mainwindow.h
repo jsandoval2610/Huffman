@@ -53,4 +53,4 @@ public slots:
 
 };
 
-#endif // MAINWINDoW
+#endif // MAINWINDOW
